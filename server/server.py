@@ -1,11 +1,15 @@
 import socket
 import threading
+from datetime import datetime
 
 HOST = "0.0.0.0"
 PORT = 5000
 
 clients = []
 usernames = {}
+
+def timestamp():
+    return datetime.now().strftime("[%H:%M:%S]")
 
 def broadcast(message, sender_conn=None):
     for client in clients:
@@ -23,7 +27,7 @@ def remove_client(conn):
         clients.remove(conn)
         del usernames[conn]
 
-        broadcast(f"SERVER: {username} has left the chat.")
+        broadcast(f"{timestamp()} SERVER: {username} has left the chat.")
         conn.close()
 
 def handle_client(conn, addr):
@@ -46,14 +50,22 @@ def handle_client(conn, addr):
 
                 print(f"{username} joined")
 
-                conn.send("SERVER: Welcome to the chat!".encode())
-                broadcast(f"SERVER: {username} joined the chat.", conn)
+                conn.send(f"{timestamp()} SERVER: Welcome to the chat!".encode())
+                broadcast(f"{timestamp()} SERVER: {username} joined the chat.", conn)
 
             elif message.startswith("MSG"):
                 text = message.split(" ", 1)[1]
                 username = usernames.get(conn, "Unknown")
 
-                broadcast(f"{username}: {text}", conn)
+                ts = timestamp()
+                formatted = f"{ts} {username}: {text}"
+                print(formatted)
+                broadcast(formatted, conn)
+                conn.send(formatted.encode())  # Echo back to sender with timestamp
+
+            elif message.startswith("USERS"):
+                user_list = ", ".join(usernames.values()) if usernames else "No users online"
+                conn.send(f"{timestamp()} SERVER: Online users ({len(usernames)}): {user_list}".encode())
 
             elif message.startswith("QUIT"):
                 remove_client(conn)
